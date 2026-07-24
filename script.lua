@@ -36,13 +36,14 @@ local ATTACK_ANIMATIONS = {
 -- Track which animations we've already blocked
 local blockedAnimations = {}
 
--- Function to block by jumping
+-- Function to block by moving away
 local function blockAttack()
     local myChar = LocalPlayer.Character
     if myChar then
-        local humanoid = myChar:FindFirstChild("Humanoid")
-        if humanoid then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        local humanoidRootPart = myChar:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart then
+            -- Move 10 studs away to dodge the attack
+            humanoidRootPart.CFrame = humanoidRootPart.CFrame + humanoidRootPart.CFrame.LookVector * 10
         end
     end
 end
@@ -212,7 +213,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "Auto-block ready!",
+   Content = "Auto-block ready! Dodges by moving away.",
    Duration = 3,
    Image = 4483362458,
 })
