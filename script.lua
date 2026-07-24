@@ -36,16 +36,15 @@ local ATTACK_ANIMATIONS = {
 -- Track which animations we've already blocked
 local blockedAnimations = {}
 
--- Function to block by moving away
+-- Function to block by pressing F
 local function blockAttack()
-    local myChar = LocalPlayer.Character
-    if myChar then
-        local humanoidRootPart = myChar:FindFirstChild("HumanoidRootPart")
-        if humanoidRootPart then
-            -- Move 10 studs away to dodge the attack
-            humanoidRootPart.CFrame = humanoidRootPart.CFrame + humanoidRootPart.CFrame.LookVector * 10
-        end
-    end
+    print("BLOCKING - Pressing F key")
+    local UserInputService = game:GetService("UserInputService")
+    
+    -- Simulate F key press
+    UserInputService:SendKeyEvent(true, Enum.KeyCode.F, false)
+    task.wait(0.05)
+    UserInputService:SendKeyEvent(false, Enum.KeyCode.F, false)
 end
 
 -- ESP for Killers and Survivors
@@ -213,7 +212,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "Auto-block ready! Dodges by moving away.",
+   Content = "Auto-block ready! Presses F to block.",
    Duration = 3,
    Image = 4483362458,
 })
