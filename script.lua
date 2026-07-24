@@ -27,11 +27,15 @@ local ESPHighlights = {}
 -- Auto Block Variables
 local AutoBlockEnabled = false
 
--- Function to simulate F key press using VirtualUser
-local function pressF()
+-- Attack animation ID
+local ATTACK_ANIMATION = "rbxassetid://116050994905421"
+
+-- Function to block
+local function blockAttack()
     local VirtualUser = game:GetService("VirtualUser")
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton1(Vector2.new(0, 0))
+    VirtualUser:Button1Down(Vector2.new(0, 0))
+    task.wait(0.1)
+    VirtualUser:Button1Up(Vector2.new(0, 0))
 end
 
 -- ESP for Killers and Survivors
@@ -103,32 +107,46 @@ PlayerTab:CreateToggle({
    end,
 })
 
--- Auto Block Function - Detects killer running state and proximity
-spawn(function()
-    local myChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local myHRP = myChar:WaitForChild("HumanoidRootPart")
+-- Watch each killer for the attack animation
+local function watchKiller(player)
+    if player == LocalPlayer then return end
+    if not player.Character then return end
     
-    game:GetService("RunService").Heartbeat:Connect(function()
-        if not AutoBlockEnabled then return end
-        
-        if not myChar or not myHRP then return end
-        
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local killerHRP = player.Character:FindFirstChild("HumanoidRootPart")
-                local killerHumanoid = player.Character:FindFirstChild("Humanoid")
-                
-                if killerHRP and killerHumanoid then
-                    local distance = (killerHRP.Position - myHRP.Position).Magnitude
-                    local state = killerHumanoid:GetState()
-                    
-                    -- If killer is running and close, block
-                    if state == Enum.HumanoidStateType.Running and distance < 30 then
-                        pressF()
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    -- Continuously check for the attack animation
+    local lastBlockTime = 0
+    local blockCooldown = 0.5
+    
+    spawn(function()
+        while player and player.Character do
+            if AutoBlockEnabled then
+                for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
+                    if animTrack.Animation.AnimationId == ATTACK_ANIMATION then
+                        local currentTime = tick()
+                        if currentTime - lastBlockTime > blockCooldown then
+                            blockAttack()
+                            lastBlockTime = currentTime
+                        end
                     end
                 end
             end
+            task.wait(0.05)
         end
+    end)
+end
+
+-- Watch all current killers
+for _, player in pairs(Players:GetPlayers()) do
+    watchKiller(player)
+end
+
+-- Watch new players
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        watchKiller(player)
     end)
 end)
 
@@ -141,21 +159,16 @@ local function completeGenerators()
     
     local workspace = game:GetService("Workspace")
     
-    -- Look for generator objects
     for _, obj in pairs(workspace:GetDescendants()) do
-        -- Check various possible generator names
         if obj.Name:lower():find("generator") or obj.Name:lower():find("gen") or obj.Name:lower():find("machine") then
-            -- Try clicking it
             if obj:FindFirstChild("ClickDetector") then
                 fireclickdetector(obj.ClickDetector)
             end
             
-            -- Try setting progress
             if obj:FindFirstChild("Progress") then
                 obj.Progress.Value = 100
             end
             
-            -- Try finding and clicking parent
             if obj.Parent:FindFirstChild("ClickDetector") then
                 fireclickdetector(obj.Parent.ClickDetector)
             end
@@ -181,16 +194,6 @@ spawn(function()
     end
 end)
 
--- Handle new players joining
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        task.wait(0.5)
-        if ESPEnabled then
-            addESP(player)
-        end
-    end)
-end)
-
 -- Handle players leaving
 Players.PlayerRemoving:Connect(function(player)
     removeESP(player)
@@ -198,7 +201,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "Auto-block will trigger when killer is running and nearby!",
+   Content = "Auto-block will trigger when killer uses attack animation!",
    Duration = 3,
    Image = 4483362458,
 })
