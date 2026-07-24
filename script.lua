@@ -16,12 +16,16 @@ local ESPTab = Window:CreateTab("ESP", 7743885105)
 local UtilityTab = Window:CreateTab("Utility", 12073220831)
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
 -- ESP Variables
 local ESPEnabled = false
 local ESPHighlights = {}
+
+-- Auto Block Variables
+local AutoBlockEnabled = false
 
 -- ESP for Killers and Survivors
 local function addESP(player)
@@ -82,7 +86,31 @@ ESPTab:CreateToggle({
    end,
 })
 
--- Auto Generator Variable
+-- Auto Block Toggle
+PlayerTab:CreateToggle({
+   Name = "Auto Block (Before Attack)",
+   CurrentValue = false,
+   Flag = "Toggle3",
+   Callback = function(Value)
+        AutoBlockEnabled = Value
+   end,
+})
+
+-- Auto Block Function - Detects hitbox creation and blocks
+spawn(function()
+    local workspace = game:GetService("Workspace")
+    
+    workspace.DescendantAdded:Connect(function(descendant)
+        if AutoBlockEnabled and descendant.Name == "Speedmultiplier" then
+            -- Hitbox detected - block immediately
+            UserInputService:SendKeyEvent(true, Enum.KeyCode.F, false)
+            task.wait(0.05)
+            UserInputService:SendKeyEvent(false, Enum.KeyCode.F, false)
+        end
+    end)
+end)
+
+-- Auto Generator Variables
 local AutoGenEnabled = false
 
 -- Auto Complete Generators
@@ -91,13 +119,23 @@ local function completeGenerators()
     
     local workspace = game:GetService("Workspace")
     
+    -- Look for generator objects
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj.Name:lower():find("generator") or obj.Name:lower():find("gen") then
+        -- Check various possible generator names
+        if obj.Name:lower():find("generator") or obj.Name:lower():find("gen") or obj.Name:lower():find("machine") then
+            -- Try clicking it
             if obj:FindFirstChild("ClickDetector") then
                 fireclickdetector(obj.ClickDetector)
             end
+            
+            -- Try setting progress
             if obj:FindFirstChild("Progress") then
                 obj.Progress.Value = 100
+            end
+            
+            -- Try finding and clicking parent
+            if obj.Parent:FindFirstChild("ClickDetector") then
+                fireclickdetector(obj.Parent.ClickDetector)
             end
         end
     end
@@ -116,68 +154,15 @@ UtilityTab:CreateToggle({
 -- Run generator completion periodically
 spawn(function()
     while true do
-        wait(5)
+        task.wait(3)
         completeGenerators()
     end
 end)
 
--- Auto Block Variable
-local AutoBlockEnabled = false
-
--- Auto Block Feature (Press F)
-local UserInputService = game:GetService("UserInputService")
-local isBlocking = false
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if input.KeyCode == Enum.KeyCode.F then
-        isBlocking = true
-        Rayfield:Notify({
-            Title = "Block",
-            Content = "Blocking activated!",
-            Duration = 1.5,
-            Image = 4483362458,
-        })
-        
-        local remoteEvent = workspace:FindFirstChild("BlockRemote") or game.ReplicatedStorage:FindFirstChild("BlockRemote")
-        if remoteEvent then
-            remoteEvent:FireServer(true)
-        end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.F then
-        isBlocking = false
-        Rayfield:Notify({
-            Title = "Block",
-            Content = "Blocking deactivated!",
-            Duration = 1.5,
-            Image = 4483362458,
-        })
-        
-        local remoteEvent = workspace:FindFirstChild("BlockRemote") or game.ReplicatedStorage:FindFirstChild("BlockRemote")
-        if remoteEvent then
-            remoteEvent:FireServer(false)
-        end
-    end
-end)
-
--- Auto Block Toggle
-PlayerTab:CreateToggle({
-   Name = "Auto Block (Press F)",
-   CurrentValue = false,
-   Flag = "Toggle3",
-   Callback = function(Value)
-        AutoBlockEnabled = Value
-   end,
-})
-
 -- Handle new players joining
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        wait(0.5)
+        task.wait(0.5)
         if ESPEnabled then
             addESP(player)
         end
@@ -191,7 +176,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "All features are ready. Press K to toggle UI.",
+   Content = "Auto-block will trigger when the killer's hitbox is created!",
    Duration = 3,
    Image = 4483362458,
 })
