@@ -1,50 +1,100 @@
-local Solara = loadstring(game:HttpGet("https://raw.githubusercontent.com/solaralayouts/solara/main/init.lua"))()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
 
-local Window = Solara:CreateWindow({
-    Title = "Nexora Hub",
-    SubTitle = "by Nexora"
-})
-
-local PlayerTab = Window:CreateTab("Player", "🎮")
-
-local npcFolder = workspace:WaitForChild("NPCs")
-
-local function addHighlight(model)
-    if not model:IsA("Model") then return end
-    if model:FindFirstChild("Highlight") then return end
-
-    local h = Instance.new("Highlight")
-    h.FillColor = Color3.fromRGB(255, 0, 0)
-    h.OutlineColor = Color3.new(1,1,1)
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Parent = model
+-- ESP for Killers and Survivors
+local function addESP(player)
+    if not player.Character then return end
+    
+    local character = player.Character
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoidRootPart then return end
+    
+    -- Remove existing ESP if it exists
+    if humanoidRootPart:FindFirstChild("ESP") then
+        humanoidRootPart:FindFirstChild("ESP"):Destroy()
+    end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP"
+    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Red for killer/survivor
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = character
 end
 
-for _, npc in ipairs(npcFolder:GetChildren()) do
-    addHighlight(npc)
+-- Add ESP to all players
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        addESP(player)
+    end
 end
 
-npcFolder.ChildAdded:Connect(addHighlight)
+-- Add ESP to new players joining
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(0.5)
+        addESP(player)
+    end)
+end)
 
-local blocking = false
-
-local function setBlocking(state)
-    blocking = state
+-- Auto Complete Generators
+local function completeGenerators()
+    local workspace = game:GetService("Workspace")
+    
+    -- Find all generators in the workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj.Name:lower():find("generator") or obj.Name:lower():find("gen") then
+            if obj:FindFirstChild("Humanoid") then
+                obj.Humanoid.Health = 0
+            end
+            -- Try to activate/complete the generator
+            if obj:FindFirstChild("ClickDetector") then
+                fireclickdetector(obj.ClickDetector)
+            end
+        end
+    end
 end
 
-game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.F then
-        setBlocking(true)
+-- Run generator completion periodically
+spawn(function()
+    while true do
+        wait(5)
+        completeGenerators()
     end
 end)
 
-game:GetService("UserInputService").InputEnded:Connect(function(input)
+-- Auto Block Feature (Press F)
+local UserInputService = game:GetService("UserInputService")
+local isBlocking = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
     if input.KeyCode == Enum.KeyCode.F then
-        setBlocking(false)
+        isBlocking = true
+        print("Blocking activated!")
+        
+        -- Send blocking to server
+        local remoteEvent = workspace:FindFirstChild("BlockRemote") or game.ReplicatedStorage:FindFirstChild("BlockRemote")
+        if remoteEvent then
+            remoteEvent:FireServer(true)
+        end
     end
 end)
 
-for _, gen in ipairs(workspace.Generators:GetChildren()) do
-    gen:SetAttribute("Progress", 100)
-end
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.F then
+        isBlocking = false
+        print("Blocking deactivated!")
+        
+        local remoteEvent = workspace:FindFirstChild("BlockRemote") or game.ReplicatedStorage:FindFirstChild("BlockRemote")
+        if remoteEvent then
+            remoteEvent:FireServer(false)
+        end
+    end
+end)
+
+print("Forsaken Hub loaded!")
