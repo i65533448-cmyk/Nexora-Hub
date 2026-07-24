@@ -27,6 +27,13 @@ local ESPHighlights = {}
 -- Auto Block Variables
 local AutoBlockEnabled = false
 
+-- Function to simulate F key press using VirtualUser
+local function pressF()
+    local VirtualUser = game:GetService("VirtualUser")
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton1(Vector2.new(0, 0))
+end
+
 -- ESP for Killers and Survivors
 local function addESP(player)
     if not player.Character then return end
@@ -96,16 +103,31 @@ PlayerTab:CreateToggle({
    end,
 })
 
--- Auto Block Function - Detects hitbox creation and blocks
+-- Auto Block Function - Detects killer running state and proximity
 spawn(function()
-    local workspace = game:GetService("Workspace")
+    local myChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local myHRP = myChar:WaitForChild("HumanoidRootPart")
     
-    workspace.DescendantAdded:Connect(function(descendant)
-        if AutoBlockEnabled and descendant.Name == "Speedmultiplier" then
-            -- Hitbox detected - block immediately
-            UserInputService:SendKeyEvent(true, Enum.KeyCode.F, false)
-            task.wait(0.05)
-            UserInputService:SendKeyEvent(false, Enum.KeyCode.F, false)
+    game:GetService("RunService").Heartbeat:Connect(function()
+        if not AutoBlockEnabled then return end
+        
+        if not myChar or not myHRP then return end
+        
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local killerHRP = player.Character:FindFirstChild("HumanoidRootPart")
+                local killerHumanoid = player.Character:FindFirstChild("Humanoid")
+                
+                if killerHRP and killerHumanoid then
+                    local distance = (killerHRP.Position - myHRP.Position).Magnitude
+                    local state = killerHumanoid:GetState()
+                    
+                    -- If killer is running and close, block
+                    if state == Enum.HumanoidStateType.Running and distance < 30 then
+                        pressF()
+                    end
+                end
+            end
         end
     end)
 end)
@@ -176,7 +198,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "Auto-block will trigger when the killer's hitbox is created!",
+   Content = "Auto-block will trigger when killer is running and nearby!",
    Duration = 3,
    Image = 4483362458,
 })
