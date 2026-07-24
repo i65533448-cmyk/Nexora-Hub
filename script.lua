@@ -27,8 +27,11 @@ local ESPHighlights = {}
 -- Auto Block Variables
 local AutoBlockEnabled = false
 
--- Correct attack animation ID
-local ATTACK_ANIMATION = "http://www.roblox.com/asset/?id=180435792"
+-- Killer attack animation IDs
+local ATTACK_ANIMATIONS = {
+    "rbxassetid://116050994905421",
+    "rbxassetid://126830014841198"
+}
 
 -- Function to block by jumping
 local function blockAttack()
@@ -110,7 +113,7 @@ PlayerTab:CreateToggle({
    end,
 })
 
--- Watch each killer for the attack animation
+-- Watch each killer for attack animations
 local function watchKiller(player)
     if player == LocalPlayer then return end
     if not player.Character then return end
@@ -118,19 +121,22 @@ local function watchKiller(player)
     local humanoid = player.Character:FindFirstChild("Humanoid")
     if not humanoid then return end
     
-    -- Continuously check for the attack animation
     local lastBlockTime = 0
     local blockCooldown = 0.3
     
     spawn(function()
-        while player and player.Character and AutoBlockEnabled do
-            for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
-                if animTrack.Animation.AnimationId == ATTACK_ANIMATION then
-                    local currentTime = tick()
-                    if currentTime - lastBlockTime > blockCooldown then
-                        print("ATTACK DETECTED - BLOCKING!")
-                        blockAttack()
-                        lastBlockTime = currentTime
+        while player and player.Character and humanoid do
+            if AutoBlockEnabled then
+                for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
+                    for _, attackAnim in pairs(ATTACK_ANIMATIONS) do
+                        if animTrack.Animation.AnimationId == attackAnim then
+                            local currentTime = tick()
+                            if currentTime - lastBlockTime > blockCooldown then
+                                print("ATTACK DETECTED - JUMPING!")
+                                blockAttack()
+                                lastBlockTime = currentTime
+                            end
+                        end
                     end
                 end
             end
@@ -203,7 +209,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "Auto-block will trigger when killer attacks!",
+   Content = "Auto-block detects both attack animations!",
    Duration = 3,
    Image = 4483362458,
 })
