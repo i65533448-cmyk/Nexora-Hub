@@ -33,6 +33,9 @@ local ATTACK_ANIMATIONS = {
     "rbxassetid://126830014841198"
 }
 
+-- Track which animations we've already blocked
+local blockedAnimations = {}
+
 -- Function to block by jumping
 local function blockAttack()
     local myChar = LocalPlayer.Character
@@ -110,6 +113,7 @@ PlayerTab:CreateToggle({
    Flag = "Toggle3",
    Callback = function(Value)
         AutoBlockEnabled = Value
+        blockedAnimations = {} -- Reset when toggling
    end,
 })
 
@@ -121,26 +125,25 @@ local function watchKiller(player)
     local humanoid = player.Character:FindFirstChild("Humanoid")
     if not humanoid then return end
     
-    local lastBlockTime = 0
-    local blockCooldown = 0.3
-    
     spawn(function()
         while player and player.Character and humanoid do
             if AutoBlockEnabled then
                 for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
                     for _, attackAnim in pairs(ATTACK_ANIMATIONS) do
                         if animTrack.Animation.AnimationId == attackAnim then
-                            local currentTime = tick()
-                            if currentTime - lastBlockTime > blockCooldown then
-                                print("ATTACK DETECTED - JUMPING!")
+                            -- Create unique key for this animation instance
+                            local animKey = player.UserId .. "_" .. animTrack.Animation.AnimationId
+                            
+                            -- Only block once per animation play
+                            if not blockedAnimations[animKey] then
                                 blockAttack()
-                                lastBlockTime = currentTime
+                                blockedAnimations[animKey] = true
                             end
                         end
                     end
                 end
             end
-            task.wait(0.05)
+            task.wait(0.1) -- Check less frequently
         end
     end)
 end
@@ -209,7 +212,7 @@ end)
 
 Rayfield:Notify({
    Title = "Forsaken Hub Loaded!",
-   Content = "Auto-block detects both attack animations!",
+   Content = "Auto-block ready!",
    Duration = 3,
    Image = 4483362458,
 })
